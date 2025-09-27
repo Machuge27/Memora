@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../../../core/services/auth_service.dart';
+import '../providers/auth_provider.dart';
+import '../../../core/theme/theme_provider.dart';
 
 class EmailVerificationScreen extends StatefulWidget {
   final String email;
@@ -35,11 +38,31 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
       );
 
       if (mounted) {
-        if (result['token'] != null) {
-          _showSuccess('Email verified successfully!');
-          context.go('/events');
+        if (result['success'] == true) {
+          if (result['already_verified'] == true) {
+            _showSuccess(result['message'] ?? 'Email already verified');
+            context.go('/sign-in');
+          } else if (result['data']?['access'] != null) {
+            context.read<AuthProvider>().setAuthenticated(true);
+            _showSuccess(result['message'] ?? 'Email verified successfully!');
+            context.go('/events');
+          } else {
+            _showSuccess(result['message'] ?? 'Email verified successfully!');
+            context.go('/sign-in');
+          }
         } else {
-          _showError(result['message'] ?? 'Verification failed');
+          final errors = result['errors'];
+          if (errors != null && errors is Map) {
+            final errorMessages = <String>[];
+            errors.forEach((key, value) {
+              if (value is List) {
+                errorMessages.addAll(value.cast<String>());
+              }
+            });
+            _showError(errorMessages.isNotEmpty ? errorMessages.join(', ') : result['message'] ?? 'Verification failed');
+          } else {
+            _showError(result['message'] ?? 'Verification failed');
+          }
         }
       }
     } catch (e) {
@@ -76,21 +99,24 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF1A1A2E), Color(0xFF16213E)],
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        final theme = Theme.of(context);
+        return Scaffold(
+          backgroundColor: theme.colorScheme.surface,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            iconTheme: IconThemeData(color: theme.colorScheme.onSurface),
           ),
-        ),
+          body: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [theme.colorScheme.surface, theme.colorScheme.background],
+              ),
+            ),
         child: SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -99,22 +125,22 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Verify Email', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white)),
+                  Text('Verify Email', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
                   const SizedBox(height: 8),
-                  Text('Enter the code sent to ${widget.email}', style: const TextStyle(fontSize: 16, color: Color(0xFF8E8E93))),
+                  Text('Enter the code sent to ${widget.email}', style: TextStyle(fontSize: 16, color: theme.colorScheme.onSurface.withOpacity(0.7))),
                   const SizedBox(height: 48),
                   TextFormField(
                     controller: _otpController,
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
                       labelText: 'Verification Code',
-                      labelStyle: const TextStyle(color: Color(0xFF8E8E93)),
+                      labelStyle: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.7)),
                       filled: true,
-                      fillColor: const Color(0xFF2A2A3E),
+                      fillColor: theme.colorScheme.surfaceVariant,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                      prefixIcon: const Icon(Icons.verified_user_outlined, color: Color(0xFF6C63FF)),
+                      prefixIcon: Icon(Icons.verified_user_outlined, color: theme.colorScheme.primary),
                     ),
-                    style: const TextStyle(color: Colors.white),
+                    style: TextStyle(color: theme.colorScheme.onSurface),
                     validator: (value) => value?.isEmpty == true ? 'Verification code is required' : null,
                   ),
                   const SizedBox(height: 24),
@@ -122,27 +148,23 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                     onPressed: _isResending ? null : _resendOTP,
                     child: Text(
                       _isResending ? 'Resending...' : 'Resend Code',
-                      style: const TextStyle(color: Color(0xFF6C63FF)),
+                      style: TextStyle(color: theme.colorScheme.primary),
                     ),
                   ),
                   const Spacer(),
-                  Container(
+                  SizedBox(
                     width: double.infinity,
                     height: 56,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(colors: [Color(0xFF6C63FF), Color(0xFF9C88FF)]),
-                      borderRadius: BorderRadius.circular(28),
-                    ),
                     child: ElevatedButton(
                       onPressed: _isLoading ? null : _handleVerification,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.transparent,
-                        shadowColor: Colors.transparent,
+                        backgroundColor: theme.colorScheme.primary,
+                        foregroundColor: theme.colorScheme.onPrimary,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
                       ),
                       child: _isLoading
-                          ? const CircularProgressIndicator(color: Colors.white)
-                          : const Text('Verify', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.white)),
+                          ? CircularProgressIndicator(color: theme.colorScheme.onPrimary)
+                          : Text('Verify', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: theme.colorScheme.onPrimary)),
                     ),
                   ),
                   const SizedBox(height: 32),
@@ -151,7 +173,9 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
             ),
           ),
         ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

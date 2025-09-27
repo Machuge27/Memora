@@ -5,6 +5,7 @@ import 'package:camera/camera.dart';
 import '../providers/media_provider.dart';
 import '../../../shared/models/media_item.dart';
 import '../../../core/services/camera_service.dart';
+import '../../../core/utils/upload_helper.dart';
 
 class CameraScreen extends StatefulWidget {
   final String eventId;
@@ -304,30 +305,51 @@ class _CameraScreenState extends State<CameraScreen> {
     });
 
     try {
-      final imagePath = await CameraService.takePicture();
+      String? filePath;
+      MediaType mediaType;
       
-      if (imagePath != null && mounted) {
+      if (cameraMode == 'video') {
+        // Video capture not implemented yet
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Video capture not implemented yet'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      } else {
+        filePath = await CameraService.takePicture();
+        mediaType = MediaType.image;
+      }
+      
+      if (filePath != null && mounted) {
         final mediaProvider = Provider.of<MediaProvider>(context, listen: false);
-        await mediaProvider.addMediaItem(
+        final success = await mediaProvider.addMediaItem(
           eventId: widget.eventId,
-          filePath: imagePath,
-          type: MediaType.image,
-          caption: 'Captured photo',
+          filePath: filePath,
+          type: mediaType,
         );
         
-        _showCaptureSuccess();
-        await Future.delayed(const Duration(milliseconds: 1500));
-        if (mounted) {
-          context.go('/event/${widget.eventId}/gallery');
+        if (success) {
+          _showCaptureSuccess();
+          await Future.delayed(const Duration(milliseconds: 1500));
+          if (mounted) {
+            context.go('/event/${widget.eventId}/gallery');
+          }
+        } else {
+          if (mounted) {
+            final error = mediaProvider.uploadError ?? 'Upload failed';
+            UploadHelper.showUploadError(context, error);
+          }
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to capture photo'),
-            backgroundColor: Colors.red,
-          ),
+        UploadHelper.showUploadError(
+          context, 
+          'Failed to capture ${cameraMode == 'video' ? 'video' : 'photo'}: $e'
         );
       }
     } finally {

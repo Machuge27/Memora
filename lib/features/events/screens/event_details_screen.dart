@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import '../providers/event_provider.dart';
 import '../../../shared/models/event.dart';
-import '../../../shared/widgets/responsive_layout.dart';
-import '../../../core/services/navigation_service.dart';
+import '../providers/event_provider.dart';
 
 class EventDetailsScreen extends StatefulWidget {
   final String eventId;
@@ -27,402 +24,205 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
   void initState() {
     super.initState();
     _loadEvent();
-    NavigationService.setCurrentPage('/event/${widget.eventId}');
-  }
-  
-  void _navigateBack() {
-    HapticFeedback.lightImpact();
-    context.go('/events');
   }
 
   Future<void> _loadEvent() async {
-    try {
-      final eventProvider = Provider.of<EventProvider>(context, listen: false);
-      final loadedEvent = await eventProvider.getEventById(widget.eventId);
-      
-      if (mounted) {
-        setState(() {
-          event = loadedEvent;
-          isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          isLoading = false;
-        });
-      }
+    final eventProvider = Provider.of<EventProvider>(context, listen: false);
+    final loadedEvent = await eventProvider.getEventById(widget.eventId);
+    if (mounted) {
+      setState(() {
+        event = loadedEvent;
+        isLoading = false;
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    
-    if (isLoading) {
-      return Scaffold(
-        backgroundColor: theme.colorScheme.background,
-        body: Center(
-          child: CircularProgressIndicator(
-            color: theme.colorScheme.primary,
-          ),
+    return Scaffold(
+      backgroundColor: const Color(0xFF1A1A2E),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          onPressed: () => context.pop(),
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
         ),
-      );
-    }
-
-    if (event == null) {
-      return Scaffold(
-        backgroundColor: theme.colorScheme.background,
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.event_busy_rounded,
-                size: 64,
-                color: theme.colorScheme.onBackground.withOpacity(0.5),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Event not found',
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  color: theme.colorScheme.onBackground,
-                ),
-              ),
-              const SizedBox(height: 32),
-              ElevatedButton(
-                onPressed: _navigateBack,
-                child: const Text('Go Back'),
-              ),
-            ],
-          ),
+        title: const Text(
+          'Event Details',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
-      );
-    }
-
-    return PopScope(
-      canPop: true,
-      onPopInvokedWithResult: (didPop, result) {
-        if (!didPop) {
-          _navigateBack();
-        }
-      },
-      child: Scaffold(
-        backgroundColor: theme.colorScheme.background,
-        body: ResponsiveLayout(
-          child: CustomScrollView(
-            slivers: [
-              SliverAppBar(
-                expandedHeight: 300,
-                pinned: true,
-                backgroundColor: theme.colorScheme.surface,
-                elevation: 0,
-                leading: IconButton(
-                  icon: const Icon(
-                    Icons.arrow_back_ios_new_rounded,
-                    color: Colors.white,
+        actions: [
+          IconButton(
+            onPressed: () => context.push('/event/${widget.eventId}/qr'),
+            icon: const Icon(Icons.qr_code, color: Colors.white),
+          ),
+        ],
+      ),
+      body: isLoading
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFF6C63FF)),
+            )
+          : event == null
+              ? const Center(
+                  child: Text(
+                    'Event not found',
+                    style: TextStyle(color: Colors.white, fontSize: 18),
                   ),
-                  onPressed: _navigateBack,
-                ),
-                actions: [
-                  IconButton(
-                    icon: Icon(
-                      Icons.more_vert_rounded,
-                      color: Colors.white,
-                    ),
-                    onPressed: () => _showOptionsMenu(context),
-                  ),
-                ],
-                flexibleSpace: FlexibleSpaceBar(
-                  background: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              theme.colorScheme.primary,
-                              theme.colorScheme.secondary,
-                            ],
-                          ),
-                        ),
-                      ),
-                      Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.transparent,
-                              Colors.black.withOpacity(0.6),
-                            ],
-                          ),
-                        ),
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Container(
-                                width: 80,
-                                height: 80,
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: const Icon(
-                                  Icons.event_rounded,
-                                  size: 40,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                event!.name,
-                                style: theme.textTheme.headlineMedium?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  shadows: [
-                                    const Shadow(
-                                      blurRadius: 10,
-                                      color: Colors.black54,
-                                    ),
-                                  ],
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(24.0),
+                )
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surface,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: theme.shadowColor.withOpacity(0.1),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            _buildInfoRow(
-                              context,
-                              Icons.calendar_month_rounded,
-                              'Date & Time',
-                              _formatDate(event!.date),
-                            ),
-                            const Divider(height: 24),
-                            _buildInfoRow(
-                              context,
-                              Icons.location_on_rounded,
-                              'Location',
-                              event!.location,
-                            ),
-                            if (event!.description.isNotEmpty) ...[
-                              const Divider(height: 24),
-                              _buildInfoRow(
-                                context,
-                                Icons.description_rounded,
-                                'Description',
-                                event!.description,
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
+                      _buildEventHeader(),
                       const SizedBox(height: 32),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 56,
-                        child: ElevatedButton.icon(
-                          onPressed: () => context.go('/event/${widget.eventId}/gallery'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: theme.colorScheme.primary,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(28),
-                            ),
-                            elevation: 8,
-                          ),
-                          icon: const Icon(Icons.photo_library_rounded),
-                          label: const Text(
-                            'View Gallery',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: SizedBox(
-                              height: 56,
-                              child: OutlinedButton.icon(
-                                onPressed: () => context.go('/camera/${widget.eventId}'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: theme.colorScheme.primary,
-                                  side: BorderSide(
-                                    color: theme.colorScheme.primary,
-                                    width: 2,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(28),
-                                  ),
-                                ),
-                                icon: const Icon(Icons.camera_alt_rounded),
-                                label: const Text(
-                                  'Camera',
-                                  style: TextStyle(fontWeight: FontWeight.w600),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: SizedBox(
-                              height: 56,
-                              child: OutlinedButton.icon(
-                                onPressed: () => context.go('/event/${widget.eventId}/qr'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: theme.colorScheme.primary,
-                                  side: BorderSide(
-                                    color: theme.colorScheme.primary,
-                                    width: 2,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(28),
-                                  ),
-                                ),
-                                icon: const Icon(Icons.qr_code_rounded),
-                                label: const Text(
-                                  'QR Code',
-                                  style: TextStyle(fontWeight: FontWeight.w600),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                      _buildEventInfo(),
+                      const SizedBox(height: 32),
+                      _buildActionButtons(),
                     ],
                   ),
                 ),
-              ),
-            ],
-          ),
+    );
+  }
+
+  Widget _buildEventHeader() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF6C63FF), Color(0xFF9C88FF)],
         ),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            event!.name,
+            style: const TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          if (event!.description.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              event!.description,
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.white.withOpacity(0.9),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
 
-  Widget _buildInfoRow(
-    BuildContext context,
-    IconData icon,
-    String title,
-    String value,
-  ) {
-    final theme = Theme.of(context);
-    
+  Widget _buildEventInfo() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2A2A3E),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          _buildInfoRow(Icons.calendar_month, 'Date', _formatDate(event!.date)),
+          const SizedBox(height: 16),
+          _buildInfoRow(Icons.location_on, 'Location', event!.location),
+          const SizedBox(height: 16),
+          _buildInfoRow(Icons.people, 'Participants', '${event!.participantsCount}'),
+          const SizedBox(height: 16),
+          _buildInfoRow(Icons.photo_library, 'Media', '${event!.mediaCount}'),
+          const SizedBox(height: 16),
+          _buildInfoRow(Icons.visibility, 'Privacy', event!.privacy.toUpperCase()),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String label, String value) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: theme.colorScheme.primary.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(
-            icon,
-            color: theme.colorScheme.primary,
-            size: 20,
+        Icon(icon, color: const Color(0xFF6C63FF), size: 20),
+        const SizedBox(width: 12),
+        Text(
+          label,
+          style: const TextStyle(
+            color: Color(0xFF8E8E93),
+            fontSize: 16,
           ),
         ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withOpacity(0.7),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                value,
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: theme.colorScheme.onSurface,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
+        const Spacer(),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ],
     );
   }
 
-  void _showOptionsMenu(BuildContext context) {
-    final theme = Theme.of(context);
-    
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: theme.colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+  Widget _buildActionButtons() {
+    return Column(
+      children: [
+        _buildActionButton(
+          icon: Icons.photo_library,
+          label: 'View Gallery',
+          onPressed: () => context.push('/gallery/${widget.eventId}'),
+        ),
+        const SizedBox(height: 12),
+        _buildActionButton(
+          icon: Icons.camera_alt,
+          label: 'Take Photo',
+          onPressed: () => context.push('/camera/${widget.eventId}'),
+        ),
+        const SizedBox(height: 12),
+        _buildActionButton(
+          icon: Icons.qr_code,
+          label: 'Show QR Code',
+          onPressed: () => context.push('/event/${widget.eventId}/qr'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onPressed,
+  }) {
+    return Container(
+      width: double.infinity,
+      height: 56,
+      decoration: BoxDecoration(
+        color: const Color(0xFF2A2A3E),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF6C63FF).withOpacity(0.3)),
       ),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.onSurface.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 20),
-            ListTile(
-              leading: const Icon(Icons.share_rounded),
-              title: const Text('Share Event'),
-              onTap: () {
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.home_rounded),
-              title: const Text('Back to Home'),
-              onTap: () {
-                Navigator.pop(context);
-                context.go('/');
-              },
-            ),
-          ],
+      child: ElevatedButton.icon(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        icon: Icon(icon, color: const Color(0xFF6C63FF)),
+        label: Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
     );
@@ -430,10 +230,9 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
 
   String _formatDate(DateTime date) {
     final months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
     ];
-    
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
 }

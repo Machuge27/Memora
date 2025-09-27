@@ -2,8 +2,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
 import '../providers/media_provider.dart';
 import '../../../shared/models/media_item.dart';
+import '../widgets/video_player_widget.dart';
 
 class MediaDetailScreen extends StatefulWidget {
   final String mediaId;
@@ -29,6 +31,9 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
   static const double _minScale = 0.5;
   static const double _maxScale = 3.0;
   bool _isMaximized = false;
+
+  // Add margin constants for gesture detection
+  static const double _gestureMargin = 40.0; // Margin from screen edges
 
   @override
   void initState() {
@@ -80,7 +85,6 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -125,37 +129,33 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
     return Stack(
       fit: StackFit.expand,
       children: [
-        // PageView with gesture-based navigation
+        // PageView with gesture handling disabled when zoomed
         PageView.builder(
           controller: _pageController,
+          physics: _currentScale > 1.0
+              ? const NeverScrollableScrollPhysics()
+              : const ClampingScrollPhysics(),
           onPageChanged: (index) {
             setState(() {
               _currentIndex = index;
             });
             _resetZoom();
+            HapticFeedback.lightImpact();
           },
           itemCount: widget.mediaIds!.length,
           itemBuilder: (context, index) {
             final mediaItem = mediaProvider.getMediaById(widget.mediaIds![index]);
             if (mediaItem == null) return const SizedBox();
-            return _buildImageView(mediaItem);
+            return _buildMediaContent(mediaItem);
           },
         ),
 
-        // Gesture overlay for tap and swipe up
-        GestureDetector(
-          onTap: _toggleUI,
-          onVerticalDragEnd: (details) {
-            if (details.primaryVelocity != null && details.primaryVelocity! < -500) {
-              final currentMediaId = widget.mediaIds![_currentIndex];
-              _showOptionsBottomSheet(context, currentMediaId);
-            }
-          },
-          child: Container(color: Colors.transparent),
-        ),
+        // Custom gesture overlay
+        _buildGestureOverlay(),
 
         // Navigation arrows
-        if (widget.mediaIds != null && widget.mediaIds!.length > 1) ..._buildNavigationArrows(),
+        if (widget.mediaIds != null && widget.mediaIds!.length > 1)
+          ..._buildNavigationArrows(),
 
         // UI Overlays
         _buildUIOverlays(mediaProvider),
@@ -167,28 +167,69 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
     return Stack(
       fit: StackFit.expand,
       children: [
-        _buildImageView(mediaItem),
-        GestureDetector(
-          onTap: _toggleUI,
-          onVerticalDragEnd: (details) {
-            if (details.primaryVelocity != null && details.primaryVelocity! < -500) {
-              _showOptionsBottomSheet(context, widget.mediaId);
-            }
-          },
-          child: Container(color: Colors.transparent),
-        ),
+        _buildMediaContent(mediaItem),
+        _buildGestureOverlay(),
         _buildUIOverlays(mediaProvider),
       ],
     );
   }
 
-  Widget _buildImageView(MediaItem mediaItem) {
+  Widget _buildGestureOverlay() {
+    return Positioned.fill(
+      child: GestureDetector(
+        onTap: _toggleUI,
+        onPanUpdate: (details) {
+          // Handle swipe gestures only when not zoomed
+          if (_currentScale <= 1.0 && widget.mediaIds != null) {
+            final screenWidth = MediaQuery.of(context).size.width;
+            final dx = details.delta.dx;
+
+            // Horizontal swipe detection with threshold
+            if (dx.abs() > 2) {
+              if (dx > 0 && _currentIndex > 0) {
+                // Swipe right - previous
+                _navigateToPrevious();
+              } else if (dx < 0 &&
+                  _currentIndex < widget.mediaIds!.length - 1) {
+                // Swipe left - next
+                _navigateToNext();
+              }
+            }
+          }
+        },
+        onPanEnd: (details) {
+          final velocity = details.velocity.pixelsPerSecond;
+
+          // Vertical swipe gestures
+          if (velocity.dy.abs() > velocity.dx.abs()) {
+            if (velocity.dy < -500) {
+              // Swipe up - show options
+              final currentMediaId =
+                  widget.mediaIds?[_currentIndex] ?? widget.mediaId;
+              _showOptionsBottomSheet(context, currentMediaId);
+            } else if (velocity.dy > 500) {
+              // Swipe down - close
+              Navigator.pop(context);
+            }
+          }
+        },
+        behavior: HitTestBehavior.translucent,
+        child: Container(color: Colors.transparent),
+      ),
+    );
+  }
+
+  Widget _buildMediaContent(MediaItem mediaItem) {
+    if (mediaItem.mediaType == MediaType.video) {
+      return _buildVideoView(mediaItem);
+    }
+    
     return Center(
       child: InteractiveViewer(
         transformationController: _transformationController,
         minScale: _minScale,
         maxScale: _maxScale,
-        panEnabled: true,
+        panEnabled: _currentScale > 1.0, // Only allow panning when zoomed
         scaleEnabled: true,
         onInteractionStart: (details) {
           // Interaction started - zoom/pan mode
@@ -201,7 +242,7 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
             _currentScale = _transformationController.value.getMaxScaleOnAxis();
           });
         },
-        child: mediaItem.fileUrl != null && mediaItem.fileUrl!.startsWith('http')
+        child: mediaItem.fileUrl != null
             ? Image.network(
                 mediaItem.fileUrl!,
                 fit: BoxFit.contain,
@@ -222,7 +263,7 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
                         Icon(Icons.broken_image, color: Colors.white54, size: 80),
                         SizedBox(height: 16),
                         Text(
-                          'Failed to load image',
+                          'Failed to load media',
                           style: TextStyle(color: Colors.white54, fontSize: 16),
                         ),
                       ],
@@ -230,40 +271,44 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
                   );
                 },
               )
-            : mediaItem.fileUrl != null
-                ? Image.network(
-                    mediaItem.fileUrl!,
-                    fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) {
-                      return const Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.broken_image, color: Colors.white54, size: 80),
-                            SizedBox(height: 16),
-                            Text(
-                              'Failed to load image',
-                              style: TextStyle(color: Colors.white54, fontSize: 16),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  )
-                : const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.broken_image, color: Colors.white54, size: 80),
-                        SizedBox(height: 16),
-                        Text(
-                          'No image available',
-                          style: TextStyle(color: Colors.white54, fontSize: 16),
-                        ),
-                      ],
+            : const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.broken_image, color: Colors.white54, size: 80),
+                    SizedBox(height: 16),
+                    Text(
+                      'No media available',
+                      style: TextStyle(color: Colors.white54, fontSize: 16),
                     ),
-                  ),
+                  ],
+                ),
+              ),
       ),
+    );
+  }
+
+  Widget _buildVideoView(MediaItem mediaItem) {
+    if (mediaItem.fileUrl == null) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.videocam_off, color: Colors.white54, size: 80),
+            SizedBox(height: 16),
+            Text(
+              'No video available',
+              style: TextStyle(color: Colors.white54, fontSize: 16),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return VideoPlayerWidget(
+      videoUrl: mediaItem.fileUrl!,
+      autoPlay: false,
+      showControls: true,
     );
   }
 
@@ -683,9 +728,28 @@ class _MediaDetailScreenState extends State<MediaDetailScreen> {
           TextButton(
             onPressed: () {
               final mediaProvider = Provider.of<MediaProvider>(context, listen: false);
+              final mediaItem = mediaProvider.getMediaById(mediaId);
               mediaProvider.deleteMediaItem(mediaId);
               Navigator.pop(context);
-              Navigator.pop(context);
+              
+              if (widget.mediaIds != null && widget.mediaIds!.length > 1) {
+                // If there are more media items, stay in detail view with updated list
+                final updatedMediaIds = List<String>.from(widget.mediaIds!)
+                  ..remove(mediaId);
+                if (updatedMediaIds.isNotEmpty) {
+                  final newIndex = _currentIndex >= updatedMediaIds.length
+                      ? updatedMediaIds.length - 1
+                      : _currentIndex;
+                  context.pushReplacement('/media/${updatedMediaIds[newIndex]}',
+                      extra: {'mediaIds': updatedMediaIds});
+                } else {
+                  // No more media, go back to gallery
+                  context.go('/event/${mediaItem?.event?.id}/gallery');
+                }
+              } else {
+                // Single media deleted, go back to gallery
+                context.go('/event/${mediaItem?.event?.id}/gallery');
+              }
             },
             child: const Text(
               'Delete',

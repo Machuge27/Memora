@@ -3,11 +3,17 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:file_selector/file_selector.dart';
 import '../providers/media_provider.dart';
 import '../../../shared/models/media_item.dart';
+import '../../../core/services/media_service.dart';
+import 'dart:io';
 import '../../../shared/widgets/responsive_layout.dart';
 import '../../events/providers/event_provider.dart';
 import '../../../shared/models/event.dart';
+import '../../../core/theme/theme_provider.dart';
+import '../../events/widgets/event_header.dart';
+import '../../events/widgets/event_options_menu.dart';
 
 class MediaGalleryScreen extends StatefulWidget {
   final String eventId;
@@ -39,6 +45,7 @@ class _MediaGalleryScreenState extends State<MediaGalleryScreen>
   void initState() {
     super.initState();
     _loadEvent();
+    _loadMedia();
     _setupScrollController();
     _setupAnimations();
   }
@@ -86,6 +93,11 @@ class _MediaGalleryScreenState extends State<MediaGalleryScreen>
     }
   }
 
+  Future<void> _loadMedia() async {
+    final mediaProvider = Provider.of<MediaProvider>(context, listen: false);
+    await mediaProvider.loadMediaForEvent(widget.eventId);
+  }
+
   @override
   void dispose() {
     _scrollController.dispose();
@@ -95,8 +107,11 @@ class _MediaGalleryScreenState extends State<MediaGalleryScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        final theme = Theme.of(context);
+        return Scaffold(
+          backgroundColor: theme.colorScheme.surface,
       body: ResponsiveLayout(
         child: Consumer<MediaProvider>(
           builder: (context, mediaProvider, child) {
@@ -104,7 +119,19 @@ class _MediaGalleryScreenState extends State<MediaGalleryScreen>
             final mediaItems = _filterMediaItems(allMediaItems);
 
             if (mediaItems.isEmpty) {
-              return _buildEmptyState();
+                  return Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          theme.colorScheme.primary,
+                          theme.colorScheme.secondary,
+                        ],
+                      ),
+                    ),
+                    child: _buildEmptyState(),
+                  );
             }
 
             return Stack(
@@ -133,7 +160,7 @@ class _MediaGalleryScreenState extends State<MediaGalleryScreen>
                     
                     // Gallery Grid
                     SliverPadding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                          padding: const EdgeInsets.all(10),
                       sliver: SliverGrid(
                         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: _getGridColumns(context),
@@ -144,10 +171,15 @@ class _MediaGalleryScreenState extends State<MediaGalleryScreen>
                         delegate: SliverChildBuilderDelegate(
                           (context, index) {
                             final mediaItem = mediaItems[index];
+                                final mediaIds =
+                                    mediaItems.map((item) => item.id).toList();
                             return _MediaGridItem(
                               mediaItem: mediaItem,
                               onTap: () => context.push(
-                                '/media/${mediaItem.id}?eventId=${widget.eventId}&index=$index',
+                                    '/media/${mediaItem.id}',
+                                    extra: {
+                                      'mediaIds': mediaIds,
+                                    },
                               ),
                             );
                           },
@@ -176,12 +208,12 @@ class _MediaGalleryScreenState extends State<MediaGalleryScreen>
                       child: Container(
                         height: _filterTabHeight,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1A1A2E).withOpacity(
+                              color: theme.colorScheme.surface.withOpacity(
                             _isHeaderCollapsed ? 0.95 : 0.8,
                           ),
                           border: Border(
                             bottom: BorderSide(
-                              color: const Color(0xFF2A2A3E).withOpacity(
+                                  color: theme.colorScheme.outline.withOpacity(
                                 _isHeaderCollapsed ? 1.0 : 0.3,
                               ),
                               width: 1,
@@ -198,58 +230,83 @@ class _MediaGalleryScreenState extends State<MediaGalleryScreen>
           },
         ),
       ),
-      floatingActionButton: _buildFloatingActionButton(),
+          floatingActionButton: _buildFloatingActionButton(),
+        );
+      },
     );
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 100,
-            height: 100,
-            decoration: BoxDecoration(
-              color: const Color(0xFF2A2A3E),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: const Icon(
-              Icons.photo_library_outlined,
-              size: 50,
-              color: Color(0xFF6C63FF),
-            ),
+    final theme = Theme.of(context);
+    return Stack(
+      children: [
+        // Back button
+        Positioned(
+          top: MediaQuery.of(context).padding.top + 16,
+          left: 16,
+          child: IconButton(
+            onPressed: () => Navigator.of(context).pop(),
+            icon: Icon(Icons.arrow_back, color: theme.colorScheme.onPrimary),
           ),
-          const SizedBox(height: 24),
-          const Text(
-            'No photos yet',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
+        ),
+        // More options button
+        Positioned(
+          top: MediaQuery.of(context).padding.top + 16,
+          right: 16,
+          child: IconButton(
+            onPressed: () => EventOptionsMenu.show(context, widget.eventId),
+            icon: Icon(Icons.more_vert, color: theme.colorScheme.onPrimary),
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Be the first to capture a moment!',
-            style: TextStyle(
-              fontSize: 16,
-              color: Color(0xFF8E8E93),
-            ),
+        ),
+        // Main content
+        Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Icon(
+                  Icons.photo_library_outlined,
+                  size: 50,
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'No photos yet',
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  color: theme.colorScheme.onPrimary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Be the first to capture a moment!',
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: theme.colorScheme.onPrimary.withOpacity(0.7),
+                ),
+              ),
+              const SizedBox(height: 32),
+              _buildPrimaryButton(
+                onPressed: () => context.push('/camera/${widget.eventId}'),
+                icon: Icons.camera_alt,
+                label: 'Take Photo',
+                width: 200,
+              ),
+            ],
           ),
-          const SizedBox(height: 32),
-          _buildPrimaryButton(
-            onPressed: () => context.push('/camera/${widget.eventId}'),
-            icon: Icons.camera_alt,
-            label: 'Take Photo',
-            width: 200,
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
   Widget _buildFilterTabs(List<MediaItem> allMediaItems) {
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
@@ -259,10 +316,9 @@ class _MediaGalleryScreenState extends State<MediaGalleryScreen>
             Expanded(
               child: Text(
                 event?.name ?? 'Event Gallery',
-                style: const TextStyle(
-                  fontSize: 18,
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  color: theme.colorScheme.onSurface,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -287,6 +343,7 @@ class _MediaGalleryScreenState extends State<MediaGalleryScreen>
   }
 
   Widget _buildFilterTab(String filter, int count) {
+    final theme = Theme.of(context);
     final isSelected = _selectedFilter == filter;
     return GestureDetector(
       onTap: () => setState(() => _selectedFilter = filter),
@@ -294,19 +351,21 @@ class _MediaGalleryScreenState extends State<MediaGalleryScreen>
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF6C63FF) : Colors.transparent,
+          color: isSelected ? theme.colorScheme.primary : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected 
-                ? const Color(0xFF6C63FF) 
-                : const Color(0xFF3A3A4E),
+                ? theme.colorScheme.primary
+                : theme.colorScheme.outline,
             width: 1,
           ),
         ),
         child: Text(
           '$filter ($count)',
           style: TextStyle(
-            color: isSelected ? Colors.white : const Color(0xFF8E8E93),
+            color: isSelected
+                ? theme.colorScheme.onPrimary
+                : theme.colorScheme.onSurface.withOpacity(0.6),
             fontSize: 13,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
           ),
@@ -316,17 +375,18 @@ class _MediaGalleryScreenState extends State<MediaGalleryScreen>
   }
 
   Widget _buildFloatingActionButton() {
+    final theme = Theme.of(context);
     return Container(
       width: 56,
       height: 56,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF6C63FF), Color(0xFF9C88FF)],
+        gradient: LinearGradient(
+          colors: [theme.colorScheme.primary, theme.colorScheme.secondary],
         ),
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF6C63FF).withOpacity(0.4),
+            color: theme.colorScheme.primary.withOpacity(0.4),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -336,9 +396,9 @@ class _MediaGalleryScreenState extends State<MediaGalleryScreen>
         onPressed: _showAddMediaOptions,
         backgroundColor: Colors.transparent,
         elevation: 0,
-        child: const Icon(
+        child: Icon(
           Icons.add,
-          color: Colors.white,
+          color: theme.colorScheme.onPrimary,
           size: 24,
         ),
       ),
@@ -351,31 +411,26 @@ class _MediaGalleryScreenState extends State<MediaGalleryScreen>
     required String label,
     double? width,
   }) {
-    return Container(
+    final theme = Theme.of(context);
+    return SizedBox(
       width: width,
       height: 48,
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF6C63FF), Color(0xFF9C88FF)],
-        ),
-        borderRadius: BorderRadius.circular(12),
-      ),
       child: ElevatedButton.icon(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.transparent,
-          shadowColor: Colors.transparent,
+          backgroundColor: theme.colorScheme.primary,
+          foregroundColor: theme.colorScheme.onPrimary,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
         ),
-        icon: Icon(icon, color: Colors.white, size: 18),
+        icon: Icon(icon, color: theme.colorScheme.onPrimary, size: 18),
         label: Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w600,
-            color: Colors.white,
+            color: theme.colorScheme.onPrimary,
           ),
         ),
       ),
@@ -383,9 +438,10 @@ class _MediaGalleryScreenState extends State<MediaGalleryScreen>
   }
 
   void _showAddMediaOptions() {
+    final theme = Theme.of(context);
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF2A2A3E),
+      backgroundColor: theme.colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -398,17 +454,16 @@ class _MediaGalleryScreenState extends State<MediaGalleryScreen>
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: const Color(0xFF8E8E93),
+                color: theme.colorScheme.onSurface.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
             const SizedBox(height: 24),
-            const Text(
+            Text(
               'Add Media',
-              style: TextStyle(
-                fontSize: 20,
+              style: theme.textTheme.headlineMedium?.copyWith(
+                color: theme.colorScheme.onSurface,
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
               ),
             ),
             const SizedBox(height: 24),
@@ -449,14 +504,15 @@ class _MediaGalleryScreenState extends State<MediaGalleryScreen>
     required String label,
     required VoidCallback onTap,
   }) {
+    final theme = Theme.of(context);
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: const Color(0xFF3A3A4E),
+          color: theme.colorScheme.surfaceVariant,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFF6C63FF).withOpacity(0.3)),
+          border: Border.all(color: theme.colorScheme.primary.withOpacity(0.3)),
         ),
         child: Column(
           children: [
@@ -464,22 +520,21 @@ class _MediaGalleryScreenState extends State<MediaGalleryScreen>
               width: 50,
               height: 50,
               decoration: BoxDecoration(
-                color: const Color(0xFF6C63FF).withOpacity(0.1),
+                color: theme.colorScheme.primary.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(25),
               ),
               child: Icon(
                 icon,
-                color: const Color(0xFF6C63FF),
+                color: theme.colorScheme.primary,
                 size: 24,
               ),
             ),
             const SizedBox(height: 12),
             Text(
               label,
-              style: const TextStyle(
-                fontSize: 16,
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: theme.colorScheme.onSurface,
                 fontWeight: FontWeight.w600,
-                color: Colors.white,
               ),
             ),
           ],
@@ -489,16 +544,86 @@ class _MediaGalleryScreenState extends State<MediaGalleryScreen>
   }
 
   Future<void> _pickFromGallery() async {
-    final picker = ImagePicker();
-    final images = await picker.pickMultiImage();
-    
-    if (images.isNotEmpty && mounted) {
+    try {
+      const XTypeGroup typeGroup = XTypeGroup(
+        label: 'Media',
+        extensions: [
+          'jpg',
+          'jpeg',
+          'png',
+          'gif',
+          'JPG',
+          'webp',
+          'mp4',
+          'mov',
+          'avi',
+          'webm'
+        ],
+      );
+      
+      final files = await openFiles(acceptedTypeGroups: [typeGroup]);
+
+      if (files.isEmpty || !mounted) return;
+
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Uploading ${files.length} files...'),
+            ],
+          ),
+        ),
+      );
+
       final mediaProvider = Provider.of<MediaProvider>(context, listen: false);
-      for (final image in images) {
-        await mediaProvider.addMediaFromFile(image.path, widget.eventId);
+      final success = await mediaProvider.addMultipleMediaFromXFiles(
+        eventId: widget.eventId,
+        xFiles: files,
+      );
+
+      if (mounted) {
+        // Ensure dialog is dismissed
+        Navigator.of(context, rootNavigator: true).pop();
+
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Successfully uploaded ${files.length} files'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          final error = mediaProvider.uploadError ?? 'Upload failed';
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(error),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        // Ensure dialog is dismissed even on error
+        Navigator.of(context, rootNavigator: true).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
+  
+
+  
+
 
   int _getGridColumns(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
@@ -517,6 +642,8 @@ class _MediaGalleryScreenState extends State<MediaGalleryScreen>
         return items;
     }
   }
+
+
 }
 
 // Custom Header Delegate for the collapsible header
@@ -545,133 +672,13 @@ class _HeaderDelegate extends SliverPersistentHeaderDelegate {
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
     final progress = (shrinkOffset / (maxExtent - minExtent)).clamp(0.0, 1.0);
     
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFF6C63FF),
-            const Color(0xFF9C88FF),
-          ],
-        ),
-      ),
-      child: SafeArea(
-        child: Opacity(
-          opacity: 1.0 - (progress * 0.3),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (event != null && !isLoading) ...[
-                  Text(
-                    event!.name,
-                    style: TextStyle(
-                      fontSize: 28 - (progress * 8),
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  SizedBox(height: 16 - (progress * 8)),
-                  if (progress < 0.7) ...[
-                    _buildEventInfo(Icons.calendar_month, _formatDate(event!.date)),
-                    const SizedBox(height: 8),
-                    _buildEventInfo(Icons.location_on, event!.location),
-                    if (event!.description.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      _buildEventInfo(Icons.description, event!.description),
-                    ],
-                  ],
-                  const Spacer(),
-                  if (progress < 0.5)
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildHeaderButton(
-                            context,
-                            icon: Icons.camera_alt,
-                            label: 'Camera',
-                            onPressed: () => context.push('/camera/$eventId'),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildHeaderButton(
-                            context,
-                            icon: Icons.qr_code,
-                            label: 'QR Code',
-                            onPressed: () => context.go('/event/$eventId/qr'),
-                          ),
-                        ),
-                      ],
-                    ),
-                ] else ...[
-                  const Center(
-                    child: CircularProgressIndicator(color: Colors.white),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ),
+    return EventHeader(
+      event: event,
+      eventId: eventId,
+      isLoading: isLoading,
+      progress: progress,
+      onOptionsPressed: () => EventOptionsMenu.show(context, eventId),
     );
-  }
-
-  Widget _buildEventInfo(IconData icon, String text) {
-    return Row(
-      children: [
-        Icon(icon, color: Colors.white.withOpacity(0.8), size: 16),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            text,
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
-              fontSize: 14,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildHeaderButton(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-    required VoidCallback onPressed,
-  }) {
-    return ElevatedButton.icon(
-      onPressed: onPressed,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.white.withOpacity(0.2),
-        foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        padding: const EdgeInsets.symmetric(vertical: 12),
-      ),
-      icon: Icon(icon, size: 18),
-      label: Text(
-        label,
-        style: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-
-  String _formatDate(DateTime date) {
-    final months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ];
-    return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
 
   @override
@@ -692,6 +699,7 @@ class _MediaGridItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -699,7 +707,7 @@ class _MediaGridItem extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.2),
+              color: theme.shadowColor.withOpacity(0.2),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -719,17 +727,19 @@ class _MediaGridItem extends StatelessWidget {
                         fit: BoxFit.cover,
                         loadingBuilder: (context, child, loadingProgress) {
                           if (loadingProgress == null) return child;
-                          return _buildLoadingPlaceholder();
+                          return _buildLoadingPlaceholder(theme);
                         },
-                        errorBuilder: (context, error, stackTrace) => _buildErrorPlaceholder(),
+                        errorBuilder: (context, error, stackTrace) =>
+                            _buildErrorPlaceholder(theme),
                       )
                     : mediaItem.fileUrl != null
                         ? Image.network(
                             mediaItem.fileUrl!,
                             fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) => _buildErrorPlaceholder(),
+                            errorBuilder: (context, error, stackTrace) =>
+                                _buildErrorPlaceholder(theme),
                           )
-                        : _buildErrorPlaceholder(),
+                        : _buildErrorPlaceholder(theme),
               ),
               
               // Video overlay
@@ -760,25 +770,25 @@ class _MediaGridItem extends StatelessWidget {
     );
   }
 
-  Widget _buildLoadingPlaceholder() {
+  Widget _buildLoadingPlaceholder(ThemeData theme) {
     return Container(
-      color: const Color(0xFF2A2A3E),
-      child: const Center(
+      color: theme.colorScheme.surfaceVariant,
+      child: Center(
         child: CircularProgressIndicator(
-          color: Color(0xFF6C63FF),
+          color: theme.colorScheme.primary,
           strokeWidth: 2,
         ),
       ),
     );
   }
 
-  Widget _buildErrorPlaceholder() {
+  Widget _buildErrorPlaceholder(ThemeData theme) {
     return Container(
-      color: const Color(0xFF2A2A3E),
-      child: const Center(
+      color: theme.colorScheme.surfaceVariant,
+      child: Center(
         child: Icon(
           Icons.broken_image,
-          color: Color(0xFF6C63FF),
+          color: theme.colorScheme.primary,
           size: 32,
         ),
       ),

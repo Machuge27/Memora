@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../../../core/services/auth_service.dart';
+import '../../../core/theme/theme_provider.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -81,44 +83,51 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF1A1A2E), Color(0xFF16213E)],
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        final theme = Theme.of(context);
+        return Scaffold(
+          backgroundColor: theme.colorScheme.surface,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            iconTheme: IconThemeData(color: theme.colorScheme.onSurface),
           ),
-        ),
+          body: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [theme.colorScheme.surface, theme.colorScheme.background],
+              ),
+            ),
         child: SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Form(
               key: _formKey,
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                    Text(
                       'Create Account',
                       style: TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                        color: theme.colorScheme.onSurface,
                       ),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
+                    Text(
                       'Sign up to get started',
                       style: TextStyle(
                         fontSize: 16,
-                        color: Color(0xFF8E8E93),
+                        color: theme.colorScheme.onSurface.withOpacity(0.7),
                       ),
                     ),
                     const SizedBox(height: 48),
@@ -126,16 +135,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       controller: _usernameController,
                       decoration: InputDecoration(
                         labelText: 'Username',
-                        labelStyle: const TextStyle(color: Color(0xFF8E8E93)),
+                        labelStyle: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.7)),
                         filled: true,
-                        fillColor: const Color(0xFF2A2A3E),
+                        fillColor: theme.colorScheme.surfaceVariant,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
                           borderSide: BorderSide.none,
                         ),
-                        prefixIcon: const Icon(Icons.person_outline, color: Color(0xFF6C63FF)),
+                        prefixIcon: Icon(Icons.person_outline, color: theme.colorScheme.primary),
                       ),
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: theme.colorScheme.onSurface),
                       validator: (value) => value?.isEmpty == true ? 'Username is required' : null,
                     ),
                     const SizedBox(height: 16),
@@ -144,16 +153,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       keyboardType: TextInputType.emailAddress,
                       decoration: InputDecoration(
                         labelText: 'Email',
-                        labelStyle: const TextStyle(color: Color(0xFF8E8E93)),
+                        labelStyle: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.7)),
                         filled: true,
-                        fillColor: const Color(0xFF2A2A3E),
+                        fillColor: theme.colorScheme.surfaceVariant,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
                           borderSide: BorderSide.none,
                         ),
-                        prefixIcon: const Icon(Icons.email_outlined, color: Color(0xFF6C63FF)),
+                        prefixIcon: Icon(Icons.email_outlined, color: theme.colorScheme.primary),
                       ),
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: theme.colorScheme.onSurface),
                       validator: (value) {
                         if (value?.isEmpty == true) return 'Email is required';
                         if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value!)) {
@@ -168,23 +177,23 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       obscureText: _obscurePassword,
                       decoration: InputDecoration(
                         labelText: 'Password',
-                        labelStyle: const TextStyle(color: Color(0xFF8E8E93)),
+                        labelStyle: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.7)),
                         filled: true,
-                        fillColor: const Color(0xFF2A2A3E),
+                        fillColor: theme.colorScheme.surfaceVariant,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
                           borderSide: BorderSide.none,
                         ),
-                        prefixIcon: const Icon(Icons.lock_outline, color: Color(0xFF6C63FF)),
+                        prefixIcon: Icon(Icons.lock_outline, color: theme.colorScheme.primary),
                         suffixIcon: IconButton(
                           icon: Icon(
                             _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                            color: const Color(0xFF8E8E93),
+                            color: theme.colorScheme.onSurface.withOpacity(0.7),
                           ),
                           onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                         ),
                       ),
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: theme.colorScheme.onSurface),
                       validator: (value) {
                         if (value?.isEmpty == true) return 'Password is required';
                         if (value!.length < 6) return 'Password must be at least 6 characters';
@@ -197,81 +206,80 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       obscureText: _obscureConfirmPassword,
                       decoration: InputDecoration(
                         labelText: 'Confirm Password',
-                        labelStyle: const TextStyle(color: Color(0xFF8E8E93)),
+                        labelStyle: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.7)),
                         filled: true,
-                        fillColor: const Color(0xFF2A2A3E),
+                        fillColor: theme.colorScheme.surfaceVariant,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
                           borderSide: BorderSide.none,
                         ),
-                        prefixIcon: const Icon(Icons.lock_outline, color: Color(0xFF6C63FF)),
+                        prefixIcon: Icon(Icons.lock_outline, color: theme.colorScheme.primary),
                         suffixIcon: IconButton(
                           icon: Icon(
                             _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
-                            color: const Color(0xFF8E8E93),
+                            color: theme.colorScheme.onSurface.withOpacity(0.7),
                           ),
                           onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
                         ),
                       ),
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: theme.colorScheme.onSurface),
                       validator: (value) {
                         if (value?.isEmpty == true) return 'Please confirm your password';
                         if (value != _passwordController.text) return 'Passwords do not match';
                         return null;
                       },
                     ),
-                    const SizedBox(height: 48),
-                    Container(
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
                       width: double.infinity,
                       height: 56,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF6C63FF), Color(0xFF9C88FF)],
-                        ),
-                        borderRadius: BorderRadius.circular(28),
-                      ),
                       child: ElevatedButton(
                         onPressed: _isLoading ? null : _handleSignUp,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          shadowColor: Colors.transparent,
+                          backgroundColor: theme.colorScheme.primary,
+                          foregroundColor: theme.colorScheme.onPrimary,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(28),
                           ),
                         ),
                         child: _isLoading
-                            ? const CircularProgressIndicator(color: Colors.white)
-                            : const Text(
+                            ? CircularProgressIndicator(color: theme.colorScheme.onPrimary)
+                            : Text(
                                 'Sign Up',
                                 style: TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.w600,
-                                  color: Colors.white,
+                                  color: theme.colorScheme.onPrimary,
                                 ),
                               ),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    Center(
-                      child: TextButton(
-                        onPressed: () => context.push('/sign-in'),
-                        child: const Text(
-                          'Already have an account? Sign In',
-                          style: TextStyle(
-                            color: Color(0xFF6C63FF),
-                            fontSize: 16,
-                          ),
+                  const SizedBox(height: 16),
+                  Center(
+                    child: TextButton(
+                      onPressed: () => context.push('/sign-in'),
+                      child: Text(
+                        'Already have an account? Sign In',
+                        style: TextStyle(
+                          color: theme.colorScheme.primary,
+                          fontSize: 16,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 32),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 32),
+                ],
               ),
             ),
           ),
         ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

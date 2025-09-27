@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/services/auth_service.dart';
+import '../../../core/services/token_manager.dart';
 
 class AuthProvider extends ChangeNotifier {
   bool _isAuthenticated = false;
@@ -19,11 +21,16 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      _isAuthenticated = await AuthService.isLoggedIn() && await TokenManager.isTokenValid();
+      if (_isAuthenticated) {
+        await TokenManager.startTokenRefreshTimer();
+      }
+      
       final prefs = await SharedPreferences.getInstance();
-      _isAuthenticated = prefs.getBool('isAuthenticated') ?? false;
       _currentEventId = prefs.getString('currentEventId');
     } catch (e) {
       debugPrint('Error loading auth state: $e');
+      _isAuthenticated = false;
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -65,8 +72,11 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      await AuthService.logout();
+      TokenManager.stopTokenRefreshTimer();
+      
       final prefs = await SharedPreferences.getInstance();
-      await prefs.clear();
+      await prefs.remove('currentEventId');
       
       _isAuthenticated = false;
       _currentEventId = null;
@@ -76,5 +86,15 @@ class AuthProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  void setAuthenticated(bool authenticated) {
+    _isAuthenticated = authenticated;
+    if (authenticated) {
+      TokenManager.startTokenRefreshTimer();
+    } else {
+      TokenManager.stopTokenRefreshTimer();
+    }
+    notifyListeners();
   }
 }

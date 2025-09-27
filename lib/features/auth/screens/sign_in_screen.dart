@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../../../core/services/auth_service.dart';
+import '../providers/auth_provider.dart';
+import '../../../core/theme/theme_provider.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -35,21 +38,13 @@ class _SignInScreenState extends State<SignInScreen> {
       );
 
       if (mounted) {
-        if (result['token'] != null) {
+        if (result['access'] != null && result['user'] != null) {
+          context.read<AuthProvider>().setAuthenticated(true);
           context.go('/events');
         } else if (result['requires_verification'] == true) {
           context.go('/verify-email?email=${Uri.encodeComponent(result['email'] ?? '')}');
         } else {
-          final errors = <String>[];
-          if (result['non_field_errors'] != null) {
-            errors.addAll((result['non_field_errors'] as List).cast<String>());
-          }
-          result.forEach((key, value) {
-            if (key != 'non_field_errors' && value is List) {
-              errors.addAll(value.cast<String>());
-            }
-          });
-          _showError(errors.isNotEmpty ? errors.join(', ') : 'Sign in failed');
+          _showError(result['message'] ?? 'Sign in failed');
         }
       }
     } catch (e) {
@@ -84,21 +79,24 @@ class _SignInScreenState extends State<SignInScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF1A1A2E), Color(0xFF16213E)],
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        final theme = Theme.of(context);
+        return Scaffold(
+          backgroundColor: theme.colorScheme.surface,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            iconTheme: IconThemeData(color: theme.colorScheme.onSurface),
           ),
-        ),
+          body: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [theme.colorScheme.surface, theme.colorScheme.background],
+              ),
+            ),
         child: SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -107,21 +105,21 @@ class _SignInScreenState extends State<SignInScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Welcome Back', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white)),
+                  Text('Welcome Back', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
                   const SizedBox(height: 8),
-                  const Text('Sign in to continue', style: TextStyle(fontSize: 16, color: Color(0xFF8E8E93))),
+                  Text('Sign in to continue', style: TextStyle(fontSize: 16, color: theme.colorScheme.onSurface.withOpacity(0.7))),
                   const SizedBox(height: 48),
                   TextFormField(
                     controller: _usernameController,
                     decoration: InputDecoration(
                       labelText: 'Username',
-                      labelStyle: const TextStyle(color: Color(0xFF8E8E93)),
+                      labelStyle: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.7)),
                       filled: true,
-                      fillColor: const Color(0xFF2A2A3E),
+                      fillColor: theme.colorScheme.surfaceVariant,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                      prefixIcon: const Icon(Icons.person_outline, color: Color(0xFF6C63FF)),
+                      prefixIcon: Icon(Icons.person_outline, color: theme.colorScheme.primary),
                     ),
-                    style: const TextStyle(color: Colors.white),
+                    style: TextStyle(color: theme.colorScheme.onSurface),
                     validator: (value) => value?.isEmpty == true ? 'Username is required' : null,
                   ),
                   const SizedBox(height: 16),
@@ -130,44 +128,40 @@ class _SignInScreenState extends State<SignInScreen> {
                     obscureText: _obscurePassword,
                     decoration: InputDecoration(
                       labelText: 'Password',
-                      labelStyle: const TextStyle(color: Color(0xFF8E8E93)),
+                      labelStyle: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.7)),
                       filled: true,
-                      fillColor: const Color(0xFF2A2A3E),
+                      fillColor: theme.colorScheme.surfaceVariant,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                      prefixIcon: const Icon(Icons.lock_outline, color: Color(0xFF6C63FF)),
+                      prefixIcon: Icon(Icons.lock_outline, color: theme.colorScheme.primary),
                       suffixIcon: IconButton(
-                        icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, color: const Color(0xFF8E8E93)),
+                        icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, color: theme.colorScheme.onSurface.withOpacity(0.7)),
                         onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                       ),
                     ),
-                    style: const TextStyle(color: Colors.white),
+                    style: TextStyle(color: theme.colorScheme.onSurface),
                     validator: (value) => value?.isEmpty == true ? 'Password is required' : null,
                   ),
                   const Spacer(),
-                  Container(
+                  SizedBox(
                     width: double.infinity,
                     height: 56,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(colors: [Color(0xFF6C63FF), Color(0xFF9C88FF)]),
-                      borderRadius: BorderRadius.circular(28),
-                    ),
                     child: ElevatedButton(
                       onPressed: _isLoading ? null : _handleSignIn,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.transparent,
-                        shadowColor: Colors.transparent,
+                        backgroundColor: theme.colorScheme.primary,
+                        foregroundColor: theme.colorScheme.onPrimary,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
                       ),
                       child: _isLoading
-                          ? const CircularProgressIndicator(color: Colors.white)
-                          : const Text('Sign In', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.white)),
+                          ? CircularProgressIndicator(color: theme.colorScheme.onPrimary)
+                          : Text('Sign In', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: theme.colorScheme.onPrimary)),
                     ),
                   ),
                   const SizedBox(height: 16),
                   Center(
                     child: TextButton(
                       onPressed: () => context.go('/sign-up'),
-                      child: const Text("Don't have an account? Sign Up", style: TextStyle(color: Color(0xFF6C63FF), fontSize: 16)),
+                      child: Text("Don't have an account? Sign Up", style: TextStyle(color: theme.colorScheme.primary, fontSize: 16)),
                     ),
                   ),
                   const SizedBox(height: 32),
@@ -176,7 +170,9 @@ class _SignInScreenState extends State<SignInScreen> {
             ),
           ),
         ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

@@ -36,8 +36,9 @@ class AuthService {
 
     final data = jsonDecode(response.body);
     
-    if (response.statusCode == 200 && data['token'] != null) {
-      await _saveToken(data['token']);
+    if (response.statusCode == 200 && data['data']?['access'] != null) {
+      await _saveToken(data['data']['access']);
+      await _saveRefreshToken(data['data']['refresh']);
     }
     
     return data;
@@ -53,9 +54,12 @@ class AuthService {
     }, requiresAuth: false);
 
     final data = jsonDecode(response.body);
+    print('Login response: $data'); // Debug
     
-    if (response.statusCode == 200 && data['token'] != null) {
-      await _saveToken(data['token']);
+    if (response.statusCode == 200 && data['access'] != null) {
+      await _saveToken(data['access']);
+      await _saveRefreshToken(data['refresh']);
+      print('Token saved: ${data['access']}'); // Debug
     }
     
     return data;
@@ -114,7 +118,7 @@ class AuthService {
     String? lastName,
     String? phoneNumber,
   }) async {
-    final response = await ApiService.put('/auth/profile/', body: {
+    final response = await ApiService.patch('/auth/profile/', body: {
       if (firstName != null) 'first_name': firstName,
       if (lastName != null) 'last_name': lastName,
       if (phoneNumber != null) 'phone_number': phoneNumber,
@@ -128,13 +132,52 @@ class AuthService {
     await prefs.setString('auth_token', token);
   }
 
+  static Future<void> _saveRefreshToken(String refreshToken) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('refresh_token', refreshToken);
+  }
+
   static Future<void> _clearToken() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
+    await prefs.remove('refresh_token');
   }
 
   static Future<bool> isLoggedIn() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('auth_token') != null;
+  }
+
+  static Future<String?> getStoredToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('auth_token');
+  }
+
+  static Future<String?> getStoredRefreshToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('refresh_token');
+  }
+
+  static Future<Map<String, dynamic>> refreshToken() async {
+    final refreshToken = await getStoredRefreshToken();
+    if (refreshToken == null) {
+      throw Exception('No refresh token available');
+    }
+
+    final response = await ApiService.post('/auth/refresh/', body: {
+      'refresh': refreshToken,
+    }, requiresAuth: false);
+
+    final data = jsonDecode(response.body);
+    
+    if (response.statusCode == 200 && data['access'] != null) {
+      await _saveToken(data['access']);
+      // Keep the same refresh token unless a new one is provided
+      if (data['refresh'] != null) {
+        await _saveRefreshToken(data['refresh']);
+      }
+    }
+    
+    return data;
   }
 }

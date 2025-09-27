@@ -1,9 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../shared/widgets/responsive_layout.dart';
+import '../../../core/services/auth_service.dart';
 
-class WelcomeScreen extends StatelessWidget {
+class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
+
+  @override
+  State<WelcomeScreen> createState() => _WelcomeScreenState();
+}
+
+class _WelcomeScreenState extends State<WelcomeScreen> {
+  bool _isLoggedIn = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkLoginStatus();
+  }
+
+  Future<void> _checkLoginStatus() async {
+    final isLoggedIn = await AuthService.isLoggedIn();
+    setState(() {
+      _isLoggedIn = isLoggedIn;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -135,57 +156,82 @@ class WelcomeScreen extends StatelessWidget {
                 // Action Buttons
                 Column(
                   children: [
-                    // Sign In Button
-                    SizedBox(
-                      width: double.infinity,
-                      height: 56,
-                      child: ElevatedButton(
-                        onPressed: () => context.push('/sign-in'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: theme.colorScheme.primary,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(28),
+                    if (!_isLoggedIn) ...[
+                      // Sign In Button
+                      SizedBox(
+                        width: double.infinity,
+                        height: 56,
+                        child: ElevatedButton(
+                          onPressed: () => context.push('/sign-in'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: theme.colorScheme.primary,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(28),
+                            ),
                           ),
-                        ),
-                        child: Text(
-                          'Sign In',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 16),
-                    
-                    // Sign Up Button
-                    SizedBox(
-                      width: double.infinity,
-                      height: 56,
-                      child: OutlinedButton(
-                        onPressed: () => context.push('/sign-up'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: theme.colorScheme.primary,
-                          side: BorderSide(
-                            color: theme.colorScheme.primary,
-                            width: 2,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(28),
-                          ),
-                        ),
-                        child: Text(
-                          'Sign Up',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: theme.colorScheme.primary,
+                          child: Text(
+                            'Sign In',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                       ),
-                    ),
+
+                      const SizedBox(height: 16),
+
+                      // Sign Up Button
+                      SizedBox(
+                        width: double.infinity,
+                        height: 56,
+                        child: OutlinedButton(
+                          onPressed: () => context.push('/sign-up'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: theme.colorScheme.primary,
+                            side: BorderSide(
+                              color: theme.colorScheme.primary,
+                              width: 2,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(28),
+                            ),
+                          ),
+                          child: Text(
+                            'Sign Up',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: theme.colorScheme.primary,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ] else
+                      // Go to Events Button (when logged in)
+                      SizedBox(
+                        width: double.infinity,
+                        height: 56,
+                        child: ElevatedButton(
+                          onPressed: () => context.go('/events'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: theme.colorScheme.primary,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(28),
+                            ),
+                          ),
+                          child: Text(
+                            'Go to Events',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
                     
                     const SizedBox(height: 24),
                     
@@ -202,27 +248,6 @@ class WelcomeScreen extends StatelessWidget {
                             ),
                             label: Text(
                               'Scan QR',
-                              style: TextStyle(
-                                color: theme.colorScheme.onBackground.withOpacity(0.7),
-                              ),
-                            ),
-                          ),
-                        ),
-                        Container(
-                          width: 1,
-                          height: 20,
-                          color: theme.colorScheme.outline.withOpacity(0.3),
-                        ),
-                        Expanded(
-                          child: TextButton.icon(
-                            onPressed: () => context.go('/event/demo_event_1'),
-                            icon: Icon(
-                              Icons.visibility_rounded,
-                              size: 20,
-                              color: theme.colorScheme.onBackground.withOpacity(0.7),
-                            ),
-                            label: Text(
-                              'Demo',
                               style: TextStyle(
                                 color: theme.colorScheme.onBackground.withOpacity(0.7),
                               ),

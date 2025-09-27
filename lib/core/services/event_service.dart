@@ -38,7 +38,7 @@ class EventService {
     String? location,
     String? privacy,
   }) async {
-    final response = await ApiService.put('/events/$eventId/', body: {
+    final response = await ApiService.patch('/events/$eventId/', body: {
       if (name != null) 'name': name,
       if (description != null) 'description': description,
       if (date != null) 'date': date,

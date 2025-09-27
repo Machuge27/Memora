@@ -191,13 +191,12 @@ class DeviceGalleryScreen extends StatelessWidget {
           ),
         );
         
-        for (final image in images) {
-          await mediaProvider.addMediaItem(
-            eventId: 'device-gallery',
-            filePath: image.path,
-            type: MediaType.image,
-          );
-        }
+        // Upload files one by one
+        final filePaths = images.map((image) => image.path).toList();
+        final success = await mediaProvider.addMultipleMediaItems(
+          eventId: 'device-gallery',
+          filePaths: filePaths,
+        );
         
         // Dismiss loading indicator
         if (context.mounted) {
@@ -205,10 +204,14 @@ class DeviceGalleryScreen extends StatelessWidget {
         }
         
         if (context.mounted) {
+          final message = success
+              ? 'Added ${images.length} ${images.length == 1 ? 'photo' : 'photos'} to gallery'
+              : 'Failed to add photos to gallery';
+          
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Added ${images.length} ${images.length == 1 ? 'photo' : 'photos'} to gallery'),
-              backgroundColor: const Color(0xFF6C63FF),
+              content: Text(message),
+              backgroundColor: success ? const Color(0xFF6C63FF) : Colors.red,
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -250,7 +253,7 @@ class DeviceGalleryScreen extends StatelessWidget {
           ),
         );
         
-        await mediaProvider.addMediaItem(
+        final success = await mediaProvider.addMediaItem(
           eventId: 'device-gallery',
           filePath: video.path,
           type: MediaType.video,
@@ -263,9 +266,9 @@ class DeviceGalleryScreen extends StatelessWidget {
         
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Video added to gallery'),
-              backgroundColor: Color(0xFF6C63FF),
+            SnackBar(
+              content: Text(success ? 'Video added to gallery' : 'Failed to add video'),
+              backgroundColor: success ? const Color(0xFF6C63FF) : Colors.red,
               behavior: SnackBarBehavior.floating,
             ),
           );

@@ -108,8 +108,13 @@ class AppRouter {
             name: 'media-detail',
             pageBuilder: (context, state) {
               final mediaId = state.pathParameters['mediaId']!;
+              final extra = state.extra as Map<String, dynamic>?;
+              final mediaIds = extra?['mediaIds'] as List<String>?;
               return NoTransitionPage(
-                child: MediaDetailScreen(mediaId: mediaId),
+                child: MediaDetailScreen(
+                  mediaId: mediaId,
+                  mediaIds: mediaIds,
+                ),
               );
             },
           ),

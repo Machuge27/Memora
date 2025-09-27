@@ -18,6 +18,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> with TickerProvid
   final _locationController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
   TimeOfDay _selectedTime = TimeOfDay.now();
+  String _selectedPrivacy = 'public';
   bool _isLoading = false;
   
   late AnimationController _animationController;
@@ -224,6 +225,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> with TickerProvid
                                   icon: Icons.description_rounded,
                                   maxLines: 3,
                                 ),
+                                const SizedBox(height: 20),
+                                _buildPrivacySelector(),
                               ],
                             ),
                           ),
@@ -364,6 +367,88 @@ class _CreateEventScreenState extends State<CreateEventScreen> with TickerProvid
     );
   }
 
+  Widget _buildPrivacySelector() {
+    final theme = Theme.of(context);
+    
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        border: Border.all(color: theme.colorScheme.outline.withOpacity(0.5)),
+        borderRadius: BorderRadius.circular(16),
+        color: theme.colorScheme.surface,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.privacy_tip_rounded, color: theme.colorScheme.primary, size: 24),
+              const SizedBox(width: 12),
+              Text(
+                'Privacy',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _selectedPrivacy = 'public'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: _selectedPrivacy == 'public' ? theme.colorScheme.primary : Colors.transparent,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: _selectedPrivacy == 'public' ? theme.colorScheme.primary : theme.colorScheme.outline,
+                      ),
+                    ),
+                    child: Text(
+                      'Public',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: _selectedPrivacy == 'public' ? Colors.white : theme.colorScheme.onSurface,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _selectedPrivacy = 'private'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: _selectedPrivacy == 'private' ? theme.colorScheme.primary : Colors.transparent,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: _selectedPrivacy == 'private' ? theme.colorScheme.primary : theme.colorScheme.outline,
+                      ),
+                    ),
+                    child: Text(
+                      'Private',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: _selectedPrivacy == 'private' ? Colors.white : theme.colorScheme.onSurface,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -411,16 +496,34 @@ class _CreateEventScreenState extends State<CreateEventScreen> with TickerProvid
             _selectedTime.hour,
             _selectedTime.minute,
           ),
-          location: _locationController.text.isEmpty ? 'Event Location' : _locationController.text,
+          location: _locationController.text.isEmpty ? 'TBD' : _locationController.text,
+          privacy: _selectedPrivacy,
         );
         
         if (mounted && event != null) {
+          // Show success message
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Event "${event.name}" created successfully!'),
+              backgroundColor: Theme.of(context).colorScheme.primary,
+            ),
+          );
           context.go('/event/${event.id}/qr');
+        } else if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to create event. Please try again.'),
+              backgroundColor: Colors.red,
+            ),
+          );
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to create event: $e')),
+            SnackBar(
+              content: Text('Failed to create event: ${e.toString()}'),
+              backgroundColor: Colors.red,
+            ),
           );
         }
       } finally {

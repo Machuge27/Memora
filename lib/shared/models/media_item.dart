@@ -8,7 +8,6 @@ class MediaItem {
   final Event? event;
   final User? uploader;
   final String? fileUrl;
-  final String? thumbnailUrl;
   final MediaType type;
   final String? caption;
   final List<User> taggedUsers;
@@ -20,7 +19,6 @@ class MediaItem {
     this.event,
     this.uploader,
     this.fileUrl,
-    this.thumbnailUrl,
     required this.type,
     this.caption,
     required this.taggedUsers,
@@ -28,13 +26,14 @@ class MediaItem {
     required this.updatedAt,
   });
 
+  MediaType get mediaType => type;
+
   factory MediaItem.fromJson(Map<String, dynamic> json) {
     return MediaItem(
       id: json['id'],
       event: json['event'] != null ? Event.fromJson(json['event']) : null,
       uploader: json['uploader'] != null ? User.fromJson(json['uploader']) : null,
       fileUrl: json['file_url'],
-      thumbnailUrl: json['thumbnail_url'],
       type: json['media_type'] == 'video' ? MediaType.video : MediaType.image,
       caption: json['caption'],
       taggedUsers: (json['tagged_users'] as List<dynamic>? ?? [])
@@ -51,7 +50,6 @@ class MediaItem {
       'event': event?.toJson(),
       'uploader': uploader?.toJson(),
       'file_url': fileUrl,
-      'thumbnail_url': thumbnailUrl,
       'media_type': type == MediaType.video ? 'video' : 'image',
       'caption': caption,
       'tagged_users': taggedUsers.map((user) => user.toJson()).toList(),
@@ -65,7 +63,6 @@ class MediaItem {
     Event? event,
     User? uploader,
     String? fileUrl,
-    String? thumbnailUrl,
     MediaType? type,
     String? caption,
     List<User>? taggedUsers,
@@ -77,7 +74,6 @@ class MediaItem {
       event: event ?? this.event,
       uploader: uploader ?? this.uploader,
       fileUrl: fileUrl ?? this.fileUrl,
-      thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
       type: type ?? this.type,
       caption: caption ?? this.caption,
       taggedUsers: taggedUsers ?? this.taggedUsers,

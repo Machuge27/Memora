@@ -5,16 +5,47 @@ import '../providers/event_provider.dart';
 import '../../media/providers/media_provider.dart';
 import '../../../shared/models/event.dart';
 import '../../../core/services/auth_service.dart';
+import '../../../core/theme/theme_provider.dart';
 
-class EventsOverviewScreen extends StatelessWidget {
+class EventsOverviewScreen extends StatefulWidget {
   const EventsOverviewScreen({super.key});
 
   @override
+  State<EventsOverviewScreen> createState() => _EventsOverviewScreenState();
+}
+
+class _EventsOverviewScreenState extends State<EventsOverviewScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadEvents();
+    });
+  }
+
+  Future<void> _loadEvents() async {
+    final eventProvider = Provider.of<EventProvider>(context, listen: false);
+    final isLoggedIn = await AuthService.isLoggedIn();
+    await eventProvider.loadEvents(requiresAuth: isLoggedIn);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        final theme = Theme.of(context);
+        return Scaffold(
+            backgroundColor: theme.colorScheme.surface,
       body: Consumer2<EventProvider, MediaProvider>(
         builder: (context, eventProvider, mediaProvider, child) {
+                if (eventProvider.isLoading) {
+                  return Center(
+                    child: CircularProgressIndicator(
+                      color: theme.colorScheme.primary,
+                    ),
+                  );
+                }
+
           final events = eventProvider.events;
 
           if (events.isEmpty) {
@@ -28,18 +59,24 @@ class EventsOverviewScreen extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(24, 40, 24, 20),
                 child: Row(
                   children: [
-                    const Text(
+                          Text(
                       'Events',
                       style: TextStyle(
-                        color: Colors.white,
+                              color: theme.colorScheme.onSurface,
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const Spacer(),
                     IconButton(
+                            onPressed: () => _refreshEvents(context),
+                            icon: Icon(Icons.refresh,
+                                color: theme.colorScheme.onSurface),
+                          ),
+                          IconButton(
                       onPressed: () => context.push('/device-gallery'),
-                      icon: const Icon(Icons.photo_library, color: Colors.white),
+                            icon: Icon(Icons.photo_library,
+                                color: theme.colorScheme.onSurface),
                     ),
                   ],
                 ),
@@ -47,68 +84,111 @@ class EventsOverviewScreen extends StatelessWidget {
               
               // Events Grid
               Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: GridView.builder(
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: _getGridColumns(context),
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                      childAspectRatio: 0.8,
+                      child: RefreshIndicator(
+                        onRefresh: () => _refreshEvents(context),
+                        color: theme.colorScheme.primary,
+                        backgroundColor: theme.colorScheme.surface,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: GridView.builder(
+                            gridDelegate:
+                                SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: _getGridColumns(context),
+                              crossAxisSpacing: 16,
+                              mainAxisSpacing: 16,
+                              childAspectRatio: 0.8,
+                            ),
+                            itemCount: events.length,
+                            itemBuilder: (context, index) {
+                              if (index < events.length) {
+                                // Real events
+                                final event = events[index];
+                                final mediaItems =
+                                    mediaProvider.getMediaForEvent(event.id);
+                                return _EventCard(
+                                  event: event,
+                                  mediaCount: event.mediaCount > 0
+                                      ? event.mediaCount
+                                      : mediaItems.length,
+                                  latestMedia: mediaItems.isNotEmpty
+                                      ? mediaItems.first
+                                      : null,
+                                  onTap: () => context
+                                      .push('/event/${event.id}/gallery'),
+                                );
+                              }
+                              return const SizedBox.shrink();
+                            },
+                          ),
+                        ),
+                      ),
                     ),
-                    itemCount: events.length,
-                    itemBuilder: (context, index) {
-                      if (index < events.length) {
-                        // Real events
-                        final event = events[index];
-                        final mediaItems = mediaProvider.getMediaForEvent(event.id);
-                        return _EventCard(
-                          event: event,
-                          mediaCount: mediaItems.length,
-                          latestMedia: mediaItems.isNotEmpty ? mediaItems.first : null,
-                          onTap: () => context.push('/event/${event.id}/gallery'),
-                        );
-                      }
-                      return const SizedBox.shrink();
-                    },
-                  ),
-                ),
-              ),
             ],
           );
         },
       ),
-      floatingActionButton: Container(
-        width: 64,
-        height: 64,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF6C63FF), Color(0xFF9C88FF)],
-          ),
-          borderRadius: BorderRadius.circular(32),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF6C63FF).withOpacity(0.4),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        child: FloatingActionButton(
-          onPressed: () => _handleCreateEvent(context),
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          child: const Icon(
-            Icons.add_rounded,
-            color: Colors.white,
-            size: 28,
-          ),
-        ),
-      ),
+            floatingActionButton: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Join Event FAB
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceVariant,
+                    borderRadius: BorderRadius.circular(28),
+                    border: Border.all(
+                      color: theme.colorScheme.primary,
+                      width: 2,
+                    ),
+                  ),
+                  child: FloatingActionButton(
+                    onPressed: () => context.push('/qr-scan'),
+                    backgroundColor: Colors.transparent,
+                    elevation: 0,
+                    heroTag: "join",
+                    child: Icon(
+                      Icons.qr_code_scanner,
+                      color: theme.colorScheme.primary,
+                      size: 24,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Create Event FAB
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary,
+                    borderRadius: BorderRadius.circular(32),
+                    boxShadow: [
+                      BoxShadow(
+                        color: theme.colorScheme.primary.withOpacity(0.4),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: FloatingActionButton(
+                    onPressed: () => _handleCreateEvent(context),
+                    backgroundColor: Colors.transparent,
+                    elevation: 0,
+                    heroTag: "create",
+                    child: Icon(
+                      Icons.add_rounded,
+                      color: theme.colorScheme.onPrimary,
+                      size: 28,
+                    ),
+                  ),
+                ),
+              ],
+            ));
+      },
     );
   }
-
   Widget _buildEmptyState(BuildContext context) {
+    final theme = Theme.of(context);
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -117,69 +197,59 @@ class EventsOverviewScreen extends StatelessWidget {
             width: 120,
             height: 120,
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  const Color(0xFF6C63FF).withOpacity(0.2),
-                  const Color(0xFF9C88FF).withOpacity(0.2),
-                ],
-              ),
+              color: theme.colorScheme.primary.withOpacity(0.2),
               borderRadius: BorderRadius.circular(60),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.celebration_outlined,
               size: 60,
-              color: Color(0xFF6C63FF),
+              color: theme.colorScheme.primary,
             ),
           ),
           const SizedBox(height: 32),
-          const Text(
+          Text(
             'No Events Yet',
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              color: theme.colorScheme.onSurface,
             ),
           ),
           const SizedBox(height: 12),
-          const Text(
+          Text(
             'Create your first event and start\ncollecting memories together!',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 16,
-              color: Color(0xFF8E8E93),
+              color: theme.colorScheme.onSurface.withOpacity(0.7),
               height: 1.4,
             ),
           ),
           const SizedBox(height: 40),
-          Container(
+          SizedBox(
             width: 200,
             height: 56,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF6C63FF), Color(0xFF9C88FF)],
-              ),
-              borderRadius: BorderRadius.circular(28),
-            ),
             child: ElevatedButton(
               onPressed: () => _handleCreateEvent(context),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.transparent,
-                shadowColor: Colors.transparent,
+                backgroundColor: theme.colorScheme.primary,
+                foregroundColor: theme.colorScheme.onPrimary,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(28),
                 ),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.add_rounded, color: Colors.white, size: 20),
-                  SizedBox(width: 8),
+                  Icon(Icons.add_rounded,
+                      color: theme.colorScheme.onPrimary, size: 20),
+                  const SizedBox(width: 8),
                   Text(
                     'Create Event',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: Colors.white,
+                      color: theme.colorScheme.onPrimary,
                     ),
                   ),
                 ],
@@ -200,11 +270,16 @@ class EventsOverviewScreen extends StatelessWidget {
     }
   }
 
+
   int _getGridColumns(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
     if (width < 600) return 2;
     if (width < 900) return 3;
     return 4;
+  }
+
+  Future<void> _refreshEvents(BuildContext context) async {
+    await _loadEvents();
   }
 }
 
@@ -223,15 +298,16 @@ class _EventCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return GestureDetector(
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF2A2A3E),
+          color: theme.colorScheme.surfaceVariant,
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.2),
+              color: theme.shadowColor.withOpacity(0.2),
               blurRadius: 20,
               offset: const Offset(0, 8),
             ),
@@ -246,12 +322,7 @@ class _EventCard extends StatelessWidget {
               child: Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      const Color(0xFF6C63FF).withOpacity(0.8),
-                      const Color(0xFF9C88FF).withOpacity(0.8),
-                    ],
-                  ),
+                  color: theme.colorScheme.primary,
                   borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(24),
                     topRight: Radius.circular(24),
@@ -322,22 +393,22 @@ class _EventCard extends StatelessWidget {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.9),
+                            color: theme.colorScheme.surface.withOpacity(0.9),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.photo_camera,
                                 size: 12,
-                                color: Color(0xFF6C63FF),
+                                color: theme.colorScheme.primary,
                               ),
                               const SizedBox(width: 4),
                               Text(
                                 '$mediaCount',
-                                style: const TextStyle(
-                                  color: Color(0xFF6C63FF),
+                                style: TextStyle(
+                                  color: theme.colorScheme.primary,
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -361,10 +432,10 @@ class _EventCard extends StatelessWidget {
                   children: [
                     Text(
                       event.name,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -372,9 +443,10 @@ class _EventCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       event.location,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: Color(0xFF8E8E93),
+                        color:
+                            theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -388,7 +460,7 @@ class _EventCard extends StatelessWidget {
                           width: 8,
                           height: 8,
                           decoration: BoxDecoration(
-                            color: _getEventStatusColor(event.date),
+                            color: _getEventStatusColor(event.date, theme),
                             borderRadius: BorderRadius.circular(4),
                           ),
                         ),
@@ -397,7 +469,7 @@ class _EventCard extends StatelessWidget {
                           _getEventStatus(event.date),
                           style: TextStyle(
                             fontSize: 12,
-                            color: _getEventStatusColor(event.date),
+                            color: _getEventStatusColor(event.date, theme),
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -433,13 +505,13 @@ class _EventCard extends StatelessWidget {
     return 'Past';
   }
 
-  Color _getEventStatusColor(DateTime date) {
+  Color _getEventStatusColor(DateTime date, ThemeData theme) {
     final now = DateTime.now();
-    if (date.isAfter(now)) return const Color(0xFF6C63FF);
+    if (date.isAfter(now)) return theme.colorScheme.primary;
     if (date.day == now.day && date.month == now.month && date.year == now.year) {
-      return const Color(0xFF00C851);
+      return Colors.green;
     }
-    return const Color(0xFF8E8E93);
+    return theme.colorScheme.onSurface.withOpacity(0.7);
   }
 }
 

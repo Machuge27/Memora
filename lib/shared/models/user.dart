@@ -22,8 +22,8 @@ class User {
       id: json['id'],
       username: json['username'],
       email: json['email'],
-      firstName: json['first_name'],
-      lastName: json['last_name'],
+      firstName: json['first_name'] ?? '',
+      lastName: json['last_name'] ?? '',
       phoneNumber: json['phone_number'],
       profilePicture: json['profile_picture'],
     );

@@ -6,6 +6,7 @@ import 'core/theme/app_theme.dart';
 import 'core/theme/theme_provider.dart';
 import 'core/router/app_router.dart';
 import 'core/services/navigation_service.dart';
+import 'core/services/token_manager.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/events/providers/event_provider.dart';
 import 'features/media/providers/media_provider.dart';
@@ -18,6 +19,9 @@ void main() async {
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
+  
+  // Initialize token refresh timer
+  await TokenManager.startTokenRefreshTimer();
   
   runApp(const MemoraApp());
 }
