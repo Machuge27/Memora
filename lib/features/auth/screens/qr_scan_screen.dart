@@ -166,29 +166,13 @@ class _QRScanScreenState extends State<QRScanScreen> {
               padding: const EdgeInsets.all(24.0),
               child: Column(
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      // Flash toggle
-                      _buildControlButton(
-                        context: context,
-                        icon: Icons.flash_on_rounded,
-                        label: 'Flash',
-                        isActive: false,
-                        onTap: () => controller.toggleTorch(),
-                      ),
-                      
-                      // Gallery button
-                      _buildControlButton(
-                        context: context,
-                        icon: Icons.photo_library_rounded,
-                        label: 'Gallery',
-                        isActive: false,
-                        onTap: () {
-                          // TODO: Implement gallery QR scan
-                        },
-                      ),
-                    ],
+                  // Flash toggle - centered
+                  _buildControlButton(
+                    context: context,
+                    icon: Icons.flash_on_rounded,
+                    label: 'Flash',
+                    isActive: false,
+                    onTap: () => controller.toggleTorch(),
                   ),
                   
                   const SizedBox(height: 24),
@@ -244,51 +228,7 @@ class _QRScanScreenState extends State<QRScanScreen> {
 
 
 
-  List<Widget> _buildCornerFrames(ThemeData theme) {
-    const double cornerSize = 20.0;
-    const double cornerWidth = 3.0;
-    
-    return [
-      // Top-left corner
-      Positioned(
-        top: -2,
-        left: -2,
-        child: Container(
-          width: cornerSize,
-          height: cornerSize,
-          decoration: BoxDecoration(
-            border: Border(
-              top: BorderSide(color: theme.colorScheme.primary, width: cornerWidth),
-              left: BorderSide(color: theme.colorScheme.primary, width: cornerWidth),
-            ),
-            borderRadius: const BorderRadius.only(topLeft: Radius.circular(16)),
-          ),
-        ),
-      ),
-      // Top-right corner
-      Positioned(
-        top: -2,
-        right: -2,
-        child: Container(
-          width: cornerSize,
-          height: cornerSize,
-          decoration: BoxDecoration(
-            border: Border(
-              top: BorderSide(color: theme.colorScheme.primary, width: cornerWidth),
-              right: BorderSide(color: theme.colorScheme.primary, width: cornerWidth),
-            ),
-            borderRadius: const BorderRadius.only(topRight: Radius.circular(16)),
-          ),
-        ),
-      ),
-      // Bottom-left corner
-      Positioned(
-        bottom: -2,
-        left: -2,
-        child: Container(
-          width: cornerSize,
-          height: cornerSize,
-          decoration: BoxDecoration(
+
             border: Border(
               bottom: BorderSide(color: theme.colorScheme.primary, width: cornerWidth),
               left: BorderSide(color: theme.colorScheme.primary, width: cornerWidth),
